@@ -1,26 +1,30 @@
 import { v2 as cloudinary } from 'cloudinary';
-import fs from 'fs';
+import fs from 'fs/promises';
+import { ApiError } from './ApiError.js';
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET // Click 'View API Keys' above to copy your API secret
-});
+
 
 const uploadOnCloudinary = async (localFilePath) => {
     try {
+        cloudinary.config({
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+        })
         if (!localFilePath) return null
-        //upload file on the cloudinary 
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto"
         })
-        console.log("file is uploaded on cloudinary", response.url);
+        await fs.unlink(localFilePath)
         return response;
 
     }catch (error) {
         
-        fs.unlinkSync(localFilePath)//remove the locally saved temporary file as the upload operation got failed
-        return null;
+        if (localFilePath) {
+            await fs.unlink(localFilePath).catch(() => {})
+        }
+        console.error("Cloudinary upload failed:", error.message)
+        throw new ApiError(502, "Unable to upload file to Cloudinary")
     }
 }
 
